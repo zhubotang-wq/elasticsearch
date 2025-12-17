@@ -158,7 +158,8 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler, 
 
     public enum ThreadPoolType {
         FIXED("fixed"),
-        SCALING("scaling");
+        SCALING("scaling"),
+        VIRTUAL("virtual");
 
         private final String type;
 
