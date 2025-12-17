@@ -12,11 +12,15 @@ package org.elasticsearch.threadpool;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.util.concurrent.ThreadContext;
+import org.elasticsearch.node.Node;
+import org.elasticsearch.vThreadpool.VThreadPoolExecutor;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class VThreadExecutorBuilder extends ExecutorBuilder<VThreadExecutorBuilder.VThreadExecutorSettings> {
-
 
     public VThreadExecutorBuilder(String name, boolean isSystemThread) {
         super(name, isSystemThread);
@@ -29,17 +33,39 @@ public class VThreadExecutorBuilder extends ExecutorBuilder<VThreadExecutorBuild
 
     @Override
     VThreadExecutorSettings getSettings(Settings settings) {
-        return null;
+        final String nodeName = Node.NODE_NAME_SETTING.get(settings);
+        return new VThreadExecutorSettings(nodeName);
     }
 
     @Override
     ThreadPool.ExecutorHolder build(VThreadExecutorSettings settings, ThreadContext threadContext) {
-        return null;
+        ExecutorService executorService = new VThreadPoolExecutor(
+            settings.nodeName + "/" + super.name(),
+            Executors.newVirtualThreadPerTaskExecutor(),
+            threadContext
+        );
+        final ThreadPool.Info info = new ThreadPool.Info(
+            name(),
+            ThreadPool.ThreadPoolType.VIRTUAL,
+            Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors(),
+            null,
+            null
+        );
+
+        return new ThreadPool.ExecutorHolder(executorService, info);
     }
 
     @Override
     String formatInfo(ThreadPool.Info info) {
-        return "";
+        return String.format(
+            Locale.ROOT,
+            "name [%s], core [%d], max [%d], keep alive [%s]",
+            info.getName(),
+            info.getMin(),
+            info.getMax(),
+            info.getKeepAlive()
+        );
     }
 
     static class VThreadExecutorSettings extends ExecutorBuilder.ExecutorSettings {
@@ -47,7 +73,5 @@ public class VThreadExecutorBuilder extends ExecutorBuilder<VThreadExecutorBuild
             super(nodeName);
         }
     }
-
-
 
 }

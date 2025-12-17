@@ -19,14 +19,11 @@ import org.elasticsearch.common.util.concurrent.ThreadContext;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.AbstractExecutorService;
-
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
-
 
 import static org.elasticsearch.common.util.concurrent.EsThreadPoolExecutor.WORKER_PROBE;
 import static org.elasticsearch.core.Strings.format;
@@ -44,7 +41,8 @@ public class VThreadPoolExecutor extends AbstractExecutorService {
         this.name = name;
     }
 
-    protected void beforeExecute(Thread t, Runnable r) { }
+    protected void beforeExecute(Thread t, Runnable r) {}
+
     protected void afterExecute(Runnable r, Throwable t) {
         rethrowErrors(ThreadContext.unwrap(r));
         assert assertDefaultContext(r);
@@ -119,13 +117,12 @@ public class VThreadPoolExecutor extends AbstractExecutorService {
     boolean assertDefaultContext(Runnable r) {
         assert contextHolder.isDefaultContext()
             : "the thread context is not the default context and the thread ["
-            + Thread.currentThread().getName()
-            + "] is being returned to the pool after executing ["
-            + r
-            + "]";
+                + Thread.currentThread().getName()
+                + "] is being returned to the pool after executing ["
+                + r
+                + "]";
         return true;
     }
-
 
     void logException(AbstractRunnable r, Exception e) {
         logger.error(() -> format("[%s] unexpected exception when submitting task [%s] for execution", name, r), e);
