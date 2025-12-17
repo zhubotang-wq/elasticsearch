@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 import static org.elasticsearch.common.util.concurrent.EsThreadPoolExecutor.WORKER_PROBE;
 import static org.elasticsearch.core.Strings.format;
@@ -34,6 +35,10 @@ public class VThreadPoolExecutor extends AbstractExecutorService {
     private final ExecutorService virtualExecutorService;
     private final ThreadContext contextHolder;
     private final String name;
+
+    private final LongAdder queued = new LongAdder();
+    private final LongAdder completed = new LongAdder();
+    private final LongAdder active = new LongAdder();
 
     public VThreadPoolExecutor(String name, ExecutorService virtualExecutorService, ThreadContext contextHolder) {
         this.virtualExecutorService = virtualExecutorService;
@@ -48,15 +53,33 @@ public class VThreadPoolExecutor extends AbstractExecutorService {
         assert assertDefaultContext(r);
     }
 
+    public long getQueued() {
+        return queued.sum();
+    }
+
+    public long getActive() {
+        return active.sum();
+    }
+
+    public long getCompleted() {
+        return completed.sum();
+    }
+
     @Override
     public void execute(Runnable command) {
+        queued.increment();
         Runnable wrapped = () -> {
             beforeExecute(Thread.currentThread(), command);
             try {
+                queued.decrement();
+                active.increment();
                 command.run();
             } catch (Throwable ex) {
                 afterExecute(command, ex);
                 throw ex;
+            } finally {
+                completed.increment();
+                active.decrement();
             }
         };
 

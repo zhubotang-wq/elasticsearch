@@ -36,6 +36,7 @@ import org.elasticsearch.telemetry.metric.LongGauge;
 import org.elasticsearch.telemetry.metric.LongWithAttributes;
 import org.elasticsearch.telemetry.metric.MeterRegistry;
 import org.elasticsearch.threadpool.internal.BuiltInExecutorBuilders;
+import org.elasticsearch.vThreadpool.VThreadPoolExecutor;
 import org.elasticsearch.xcontent.ToXContentFragment;
 import org.elasticsearch.xcontent.XContentBuilder;
 
@@ -385,6 +386,48 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler, 
             if (threadPoolExecutor instanceof TaskExecutionTimeTrackingEsThreadPoolExecutor timeTrackingExecutor) {
                 instruments.addAll(timeTrackingExecutor.setupMetrics(meterRegistry, name));
             }
+        } else if (holder.executor() instanceof VThreadPoolExecutor vThreadPoolExecutor) {
+            String prefix = THREAD_POOL_METRIC_PREFIX + name;
+            instruments.add(
+                meterRegistry.registerLongGauge(
+                    prefix + THREAD_POOL_METRIC_NAME_CURRENT,
+                    "number of threads for " + name,
+                    "count",
+                    () -> new LongWithAttributes(Runtime.getRuntime().availableProcessors(), at)
+                )
+            );
+            instruments.add(
+                meterRegistry.registerLongGauge(
+                    prefix + THREAD_POOL_METRIC_NAME_QUEUE,
+                    "number queue size for " + name,
+                    "count",
+                    () -> new LongWithAttributes(vThreadPoolExecutor.getQueued(), at)
+                )
+            );
+            instruments.add(
+                meterRegistry.registerLongGauge(
+                    prefix + THREAD_POOL_METRIC_NAME_ACTIVE,
+                    "number of active threads for " + name,
+                    "count",
+                    () -> new LongWithAttributes(Math.min(Runtime.getRuntime().availableProcessors(), vThreadPoolExecutor.getActive()), at)
+                )
+            );
+            instruments.add(
+                meterRegistry.registerLongGauge(
+                    prefix + THREAD_POOL_METRIC_NAME_LARGEST,
+                    "largest pool size for " + name,
+                    "count",
+                    () -> new LongWithAttributes(Runtime.getRuntime().availableProcessors(), at)
+                )
+            );
+            instruments.add(
+                meterRegistry.registerLongAsyncCounter(
+                    prefix + THREAD_POOL_METRIC_NAME_COMPLETED,
+                    "number of completed threads for " + name,
+                    "count",
+                    () -> new LongWithAttributes(vThreadPoolExecutor.getCompleted(), at)
+                )
+            );
         }
         return instruments;
     }
