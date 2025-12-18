@@ -19,6 +19,7 @@ import org.elasticsearch.threadpool.internal.BuiltInExecutorBuilders;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Collections.frequency;
 import static java.util.Collections.unmodifiableMap;
 import static org.elasticsearch.threadpool.ThreadPool.WRITE_THREAD_POOLS_EWMA_ALPHA_SETTING;
 import static org.elasticsearch.threadpool.ThreadPool.searchAutoscalingEWMA;
@@ -30,16 +31,18 @@ public class DefaultBuiltInExecutorBuilders implements BuiltInExecutorBuilders {
         final int halfProc = ThreadPool.halfAllocatedProcessors(allocatedProcessors);
         final int halfProcMaxAt5 = ThreadPool.halfAllocatedProcessorsMaxFive(allocatedProcessors);
         final int halfProcMaxAt10 = ThreadPool.halfAllocatedProcessorsMaxTen(allocatedProcessors);
-        final int genericThreadPoolMax = ThreadPool.boundedBy(4 * allocatedProcessors, 128, 512);
+        //final int genericThreadPoolMax = ThreadPool.boundedBy(4 * allocatedProcessors, 128, 512);
         final double indexAutoscalingEWMA = WRITE_THREAD_POOLS_EWMA_ALPHA_SETTING.get(settings);
 
         Map<String, ExecutorBuilder> result = new HashMap<>();
         result.put(
             ThreadPool.Names.GENERIC,
-            new ScalingExecutorBuilder(ThreadPool.Names.GENERIC, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30), false)
+            //new ScalingExecutorBuilder(ThreadPool.Names.GENERIC, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30), false)
+            new VThreadExecutorBuilder(ThreadPool.Names.GENERIC, false)
         );
         result.put(
             ThreadPool.Names.WRITE_COORDINATION,
+            /*
             new FixedExecutorBuilder(
                 settings,
                 ThreadPool.Names.WRITE_COORDINATION,
@@ -47,9 +50,13 @@ public class DefaultBuiltInExecutorBuilders implements BuiltInExecutorBuilders {
                 10000,
                 EsExecutors.TaskTrackingConfig.builder().trackOngoingTasks().trackExecutionTime(indexAutoscalingEWMA).build()
             )
+
+             */
+            new VThreadExecutorBuilder(ThreadPool.Names.WRITE_COORDINATION, false)
         );
         result.put(
             ThreadPool.Names.WRITE,
+            /*
             new FixedExecutorBuilder(
                 settings,
                 ThreadPool.Names.WRITE,
@@ -62,10 +69,14 @@ public class DefaultBuiltInExecutorBuilders implements BuiltInExecutorBuilders {
                     .trackExecutionTime(indexAutoscalingEWMA)
                     .build()
             )
+
+             */
+            new VThreadExecutorBuilder(ThreadPool.Names.WRITE, false)
         );
         int searchOrGetThreadPoolSize = ThreadPool.searchOrGetThreadPoolSize(allocatedProcessors);
         result.put(
             ThreadPool.Names.GET,
+            /*
             new FixedExecutorBuilder(
                 settings,
                 ThreadPool.Names.GET,
@@ -73,10 +84,14 @@ public class DefaultBuiltInExecutorBuilders implements BuiltInExecutorBuilders {
                 1000,
                 EsExecutors.TaskTrackingConfig.DO_NOT_TRACK
             )
+
+             */
+            new VThreadExecutorBuilder(ThreadPool.Names.GET, false)
         );
         result.put(
             ThreadPool.Names.ANALYZE,
-            new FixedExecutorBuilder(settings, ThreadPool.Names.ANALYZE, 1, 16, EsExecutors.TaskTrackingConfig.DO_NOT_TRACK)
+            //new FixedExecutorBuilder(settings, ThreadPool.Names.ANALYZE, 1, 16, EsExecutors.TaskTrackingConfig.DO_NOT_TRACK)
+            new VThreadExecutorBuilder(ThreadPool.Names.ANALYZE, false)
         );
         result.put(
             ThreadPool.Names.SEARCH,
@@ -120,22 +135,26 @@ public class DefaultBuiltInExecutorBuilders implements BuiltInExecutorBuilders {
         );
         result.put(
             ThreadPool.Names.FLUSH,
-            new ScalingExecutorBuilder(ThreadPool.Names.FLUSH, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false)
+            //new ScalingExecutorBuilder(ThreadPool.Names.FLUSH, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false)
+            new VThreadExecutorBuilder(ThreadPool.Names.FLUSH, false)
         );
         // TODO: remove (or refine) this temporary stateless custom refresh pool sizing once ES-7631 is solved.
         final int refreshThreads = DiscoveryNode.isStateless(settings) ? allocatedProcessors : halfProcMaxAt10;
         result.put(
             ThreadPool.Names.REFRESH,
-            new ScalingExecutorBuilder(ThreadPool.Names.REFRESH, 1, refreshThreads, TimeValue.timeValueMinutes(5), false)
+            //new ScalingExecutorBuilder(ThreadPool.Names.REFRESH, 1, refreshThreads, TimeValue.timeValueMinutes(5), false)
+            new VThreadExecutorBuilder(ThreadPool.Names.REFRESH, false)
         );
         result.put(
             ThreadPool.Names.WARMER,
-            new ScalingExecutorBuilder(ThreadPool.Names.WARMER, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false)
+            //new ScalingExecutorBuilder(ThreadPool.Names.WARMER, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false)
+            new VThreadExecutorBuilder(ThreadPool.Names.WARMER, false)
         );
         final int maxSnapshotCores = ThreadPool.getMaxSnapshotThreadPoolSize(allocatedProcessors);
         result.put(
             ThreadPool.Names.SNAPSHOT,
-            new ScalingExecutorBuilder(ThreadPool.Names.SNAPSHOT, 1, maxSnapshotCores, TimeValue.timeValueMinutes(5), false)
+            //new ScalingExecutorBuilder(ThreadPool.Names.SNAPSHOT, 1, maxSnapshotCores, TimeValue.timeValueMinutes(5), false)
+            new VThreadExecutorBuilder(ThreadPool.Names.SNAPSHOT, false)
         );
         result.put(
             ThreadPool.Names.SNAPSHOT_META,
